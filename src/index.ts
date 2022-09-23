@@ -50,36 +50,7 @@ const gitlabApi = new Gitlab({
 const MyOctokit = GitHubApi.plugin(throttling);
 
 // Create a GitHub API object
-const githubApi = new MyOctokit({
-  previews: settings.useIssueImportAPI ? ['golden-comet'] : [],
-  debug: false,
-  baseUrl: settings.github.apiUrl
-    ? settings.github.apiUrl
-    : 'https://api.github.com',
-  timeout: 5000,
-  headers: {
-    'user-agent': 'node-gitlab-2-github', // GitHub is happy with a unique user agent
-    accept: 'application/vnd.github.v3+json',
-  },
-  auth: 'token ' + settings.github.token,
-  throttle: {
-    onRateLimit: async (retryAfter, options) => {
-      console.log(
-        `Request quota exhausted for request ${options.method} ${options.url}`
-      );
-      console.log(`Retrying after ${retryAfter} seconds!`);
-      return true;
-    },
-    onAbuseLimit: async (retryAfter, options) => {
-      console.log(
-        `Abuse detected for request ${options.method} ${options.url}`
-      );
-      console.log(`Retrying after ${retryAfter} seconds!`);
-      return true;
-    },
-    minimumAbuseRetryAfter: 1000,
-  },
-});
+const githubApi = createNewGithubApi(settings.github.token);
 
 const gitlabHelper = new GitlabHelper(gitlabApi, settings.gitlab);
 const githubHelper = new GithubHelper(
@@ -426,6 +397,23 @@ async function transferIssues() {
     );
     if (!githubIssue) {
       console.log(`\nMigrating issue #${issue.iid} ('${issue.title}')...`);
+      
+      // use userTokenMap to map the original gitlab author with github user.
+      // the use github user personal access token, to send below requests to github.
+      // this will make the issue created in github, created by original gitlab author
+      let glAuthor = issue.author;
+      let glAuthorUsername = issue.author?.username ? glAuthor.username as string : null;
+      let ghUsername = glAuthorUsername && settings.usermap && settings.usermap[glAuthorUsername] ? settings.usermap[glAuthorUsername] : null;
+      let ghUserToken = settings.github.userTokenMap && settings.github.userTokenMap[ghUsername] ? settings.github.userTokenMap[ghUsername] : null;
+      if (ghUserToken) {
+          // console.log(`gh user: ${ghUsername}, token: ${ghUserToken}`);
+          const ghUserGhApi = createNewGithubApi(ghUserToken);
+          githubHelper.githubApi = ghUserGhApi;
+          // need to call current token user API first else, will not work
+          const currentUser = await githubHelper.githubApi.users.getAuthenticated();
+          // console.log(`current GH user: ${JSON.stringify(currentUser, null, 4)}`);
+      }
+
       try {
         // process asynchronous code in sequence -- treats the code sort of like blocking
         await githubHelper.createIssueAndComments(issue);
@@ -453,6 +441,7 @@ async function transferIssues() {
           }
         }
       }
+      githubHelper.githubApi = githubHelper.mainGithubApi;
     } else {
       console.log(`Updating issue #${issue.iid} - ${issue.title}...`);
       try {
@@ -678,4 +667,38 @@ function inform(msg: string) {
   console.log('==================================');
   console.log(msg);
   console.log('==================================');
+}
+
+
+function createNewGithubApi(ghUserToken: string) {
+  return new MyOctokit({
+    previews: settings.useIssueImportAPI ? ['golden-comet'] : [],
+    debug: false,
+    baseUrl: settings.github.apiUrl
+      ? settings.github.apiUrl
+      : 'https://api.github.com',
+    timeout: 5000,
+    headers: {
+      'user-agent': 'node-gitlab-2-github', // GitHub is happy with a unique user agent
+      accept: 'application/vnd.github.v3+json',
+    },
+    auth: 'token ' + ghUserToken,
+    throttle: {
+      onRateLimit: async (retryAfter, options) => {
+        console.log(
+          `Request quota exhausted for request ${options.method} ${options.url}`
+        );
+        console.log(`Retrying after ${retryAfter} seconds!`);
+        return true;
+      },
+      onAbuseLimit: async (retryAfter, options) => {
+        console.log(
+          `Abuse detected for request ${options.method} ${options.url}`
+        );
+        console.log(`Retrying after ${retryAfter} seconds!`);
+        return true;
+      },
+      minimumAbuseRetryAfter: 1000,
+    },
+  });
 }
