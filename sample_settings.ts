@@ -16,6 +16,9 @@ export default {
     token_owner: '{{token_owner}}',
     repo: '{{repo}}',
     recreateRepo: false,
+    userTokenMap: {
+      'githubUser': 'ghp_personal_access_token',
+    }
   },
   s3: {
     accessKeyId: '{{accessKeyId}}',

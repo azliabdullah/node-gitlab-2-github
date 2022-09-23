@@ -98,6 +98,19 @@ If you've set `github.recreateRepo` to true and the repo belongs to an Organisat
 
 This is useful when debugging this tool or a specific migration. You will always be prompted for confirmation.
 
+#### github.userTokenMap
+
+Ask your teammates to create Personal Access Token and give it to you. This is so that GH issues can be created by using original GL author.
+
+The members have to be added to respective repository **as Admin** first. Once migration finished, change back to role to something else.
+
+```typescript
+    userTokenMap: {
+      'githubUserName1': 'ghp_githubUserName1_personal_access_token',
+      'githubUserName2': 'ghp_githubUserName2_personal_access_token',
+    }
+```
+
 ### s3 (optional)
 
 S3 can be used to store attachments from issues. If omitted, `has attachment` label will be added to GitHub issue.

@@ -70,6 +70,7 @@ export class GithubHelper {
   delayInMs: number;
   useIssuesForAllMergeRequests: boolean;
   milestoneMap?: Map<number, SimpleMilestone>;
+  mainGithubApi: GitHubApi;
 
   constructor(
     githubApi: GitHubApi,
@@ -90,6 +91,7 @@ export class GithubHelper {
     this.gitlabHelper = gitlabHelper;
     this.delayInMs = 2000;
     this.useIssuesForAllMergeRequests = useIssuesForAllMergeRequests;
+    this.mainGithubApi = githubApi;
   }
 
   /*
